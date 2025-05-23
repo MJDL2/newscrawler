@@ -1,0 +1,107 @@
+# URL 및 본문 수집 제한 설정 가이드
+
+이 문서는 네이버 뉴스 크롤러에서 URL 수집 및 본문 추출 시 적용되는 제한 옵션에 대한 설명입니다.
+
+## 1. URL 수집 제한 (`max_urls`)
+
+### 1.1 개념
+- URL 수집 제한은 검색 결과에서 수집할 뉴스 URL의 최대 개수를 의미합니다.
+- 검색 결과가 많은 경우 필요한 양만 수집하여 시간과 리소스를 절약할 수 있습니다.
+
+### 1.2 설정 방법
+- 명령행 실행 시: `--max-urls` 옵션 사용
+  ```bash
+  python main.py "검색어" --max-urls 100
+  ```
+- 대화형 인터페이스: 'URL 수집 제한' 입력란에 원하는 개수 입력
+- Python 코드:
+  ```python
+  from url_extractor import NaverNewsURLExtractor
+  extractor = NaverNewsURLExtractor()
+  urls = extractor.collect_from_search(search_url, max_urls=100)
+  ```
+
+### 1.3 값 해석
+- **0 또는 음수**: 제한 없이 모든 URL 수집 (최대 검색 페이지까지)
+- **양수(예: 100)**: 지정된 개수(예: 100개)까지만 URL 수집
+
+### 1.4 실제 동작
+- 수집 중 `max_urls`에 도달하면 즉시 수집 종료
+- 안전장치로 결과 목록이 `max_urls`를 초과할 경우 잘라냄
+
+## 2. 본문 추출 제한 (`content_limit`)
+
+### 2.1 개념
+- 본문 추출 제한은 수집된 URL 목록 중 실제로 본문을 추출할 URL의 최대 개수입니다.
+- URL이 많을 때 일부만 샘플링하여 본문 추출 시간을 줄일 수 있습니다.
+
+### 2.2 설정 방법
+- 명령행 실행 시: `--content-limit` 옵션 사용
+  ```bash
+  python main.py "검색어" --extract-content --content-limit 50
+  ```
+- 대화형 인터페이스: '본문 추출 제한' 입력란에 원하는 개수 입력
+- Python 코드:
+  ```python
+  from news_content_extractor import NaverNewsContentExtractor
+  extractor = NaverNewsContentExtractor()
+  contents = extractor.process_url_file(json_filepath, limit=50)
+  ```
+
+### 2.3 값 해석
+- **None, 0, 또는 음수**: 모든 URL에서 본문 추출
+- **양수(예: 50)**: 지정된 개수(예: 50개)까지만 본문 추출
+
+### 2.4 추출 모드 (`extraction_mode`)
+본문 추출 제한과 함께 사용할 수 있는 옵션으로, 어떤 URL을 선택할지 결정합니다:
+
+- **sequential**: 목록 앞에서부터 순차적으로 선택 (기본값)
+- **balanced**: 전체 URL 목록에서 균등하게 분포된 URL 선택
+- **per_date**: 날짜별로 균등하게 분포된 URL 선택
+
+### 2.5 설정 방법
+- 명령행 실행 시: `--extraction-mode` 옵션 사용
+  ```bash
+  python main.py "검색어" --extract-content --content-limit 50 --extraction-mode balanced
+  ```
+- Python 코드:
+  ```python
+  extractor.process_url_file(json_filepath, limit=50, extraction_mode='balanced')
+  ```
+
+## 3. 사용 예시
+
+### 3.1 모든 URL 수집 후 일부만 본문 추출
+```bash
+python main.py "AI 기술" --max-urls 0 --extract-content --content-limit 100
+```
+- 모든 URL 수집 후 처음 100개만 본문 추출
+
+### 3.2 일정 개수 URL 수집 후 모두 본문 추출
+```bash
+python main.py "AI 기술" --max-urls 50 --extract-content --content-limit 0
+```
+- 50개 URL만 수집한 후 해당 URL 모두 본문 추출
+
+### 3.3 균등 분포 방식으로 샘플링
+```bash
+python main.py "AI 기술" --max-urls 1000 --extract-content --content-limit 100 --extraction-mode balanced
+```
+- 1000개 URL 수집 후 전체 범위에서 균등하게 분포된 100개 URL만 본문 추출
+
+## 4. 권장 사항
+
+### 4.1 URL 수집 권장 설정
+- 일반적인 사용: `--max-urls 300` (검색 결과가 많은 경우 적당한 양)
+- 정밀 분석: `--max-urls 0` (모든 검색 결과 수집)
+- 빠른 테스트: `--max-urls 50` (적은 샘플로 빠른 테스트)
+
+### 4.2 본문 추출 권장 설정
+- 일반적인 사용: `--content-limit 100 --extraction-mode balanced` 
+- 전수 조사: `--content-limit 0` (모든 URL에서 본문 추출)
+- 최신 기사 중심: `--content-limit 50 --extraction-mode sequential --sort recent`
+
+## 5. 주의 사항
+- URL이 많고 본문 추출 제한이 없는 경우 상당한 시간이 소요될 수 있습니다.
+- 네이버 서버에 과도한 부하를 주지 않도록 적절한 `--delay`와 `--content-delay` 값을 설정하세요.
+- `balanced` 또는 `per_date` 추출 모드를 사용할 경우 `balanced_extractor.py` 모듈이 필요합니다.
